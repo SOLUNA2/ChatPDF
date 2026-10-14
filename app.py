@@ -11,6 +11,8 @@ from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain import hub
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
 
 
 def build_db(pdf_path, openai_key):
@@ -22,7 +24,7 @@ def build_db(pdf_path, openai_key):
     pages = PyPDFLoader(pdf_path).load_and_split()
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=100, chunk_overlap=20,
+        chunk_size=300, chunk_overlap=25,
         length_function=len, is_separator_regex=False,
     )
     texts = text_splitter.split_documents(pages)
@@ -46,11 +48,20 @@ def answer(question, openai_key, db):
     retriever_from_llm = MultiQueryRetriever.from_llm(
         retriever=db.as_retriever(), llm=llm
     )
-    prompt = hub.pull("rlm/rag-prompt")
+    prompt = ChatPromptTemplate.from_messages([
+    ("system", "당신은 설명서를 바탕으로 답하는 안내 도우미입니다.\n\n" 
+     "아래 [자료]에 있는 내용만 근거로 한국어로 답하세요\n"
+     "자료에 없으면 '설명서에서 확인되지 않습니다.'라고만 답하세요.\n"
+     "자료에 '불가능하다', '받지 않는다'처럼 없음이나 금지로 적힌 내용도 확인된 내용이므로 그대로 답하세요.\n"
+     "답변은 자료에서 확인될 때만 마지막 줄에 출처(페이지)를 적으세요.\n\n"
+     "[자료]\n{context}"),
+    ("human", "{question}"),])
     generate_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=openai_key)
 
     def format_docs(docs):
-        return "\n\n".join(doc.page_content for doc in docs)
+        return "\n\n".join(
+            f"[출처: {doc.metadata.get('page', '?')}쪽]\n{doc.page_content}" for doc in docs
+        )
 
     rag_chain = (
         {"context": retriever_from_llm | format_docs, "question": RunnablePassthrough()}
@@ -58,7 +69,8 @@ def answer(question, openai_key, db):
         | generate_llm
         | StrOutputParser()
     )
-
+    yield "🔎 설명서에서 찾는 중..."          # 상태 메시지를 먼저 화면에 내보냄
+    
     text = ""
     for chunk in rag_chain.stream(question):
         text += chunk
