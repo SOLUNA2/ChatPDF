@@ -13,6 +13,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from langsmith import Client
 
 
 def build_db(pdf_path, openai_key):
@@ -48,14 +49,17 @@ def answer(question, openai_key, db):
     retriever_from_llm = MultiQueryRetriever.from_llm(
         retriever=db.as_retriever(), llm=llm
     )
-    prompt = ChatPromptTemplate.from_messages([
-    ("system", "당신은 설명서를 바탕으로 답하는 안내 도우미입니다.\n\n" 
-     "아래 [자료]에 있는 내용만 근거로 한국어로 답하세요\n"
-     "자료에 없으면 '설명서에서 확인되지 않습니다.'라고만 답하세요.\n"
-     "자료에 '불가능하다', '받지 않는다'처럼 없음이나 금지로 적힌 내용도 확인된 내용이므로 그대로 답하세요.\n"
-     "답변은 자료에서 확인될 때만 마지막 줄에 출처(페이지)를 적으세요.\n\n"
-     "[자료]\n{context}"),
-    ("human", "{question}"),])
+#     prompt = ChatPromptTemplate.from_messages([
+#     ("system", "당신은 설명서를 바탕으로 답하는 안내 도우미입니다.\n\n" 
+#      "아래 [자료]에 있는 내용만 근거로 한국어로 답하세요\n"
+#      "자료에 없으면 '설명서에서 확인되지 않습니다.'라고만 답하세요.\n"
+#      "자료에 '불가능하다', '받지 않는다'처럼 없음이나 금지로 적힌 내용도 확인된 내용이므로 그대로 답하세요.\n"
+#      "답변은 자료에서 확인될 때만 마지막 줄에 출처(페이지)를 적으세요.\n\n"
+#      "[자료]\n{context}"),
+#     ("human", "{question}"),])
+
+    client = Client()
+    prompt = client.pull_prompt("rlm/rag-prompt", dangerously_pull_public_prompt=True)
     generate_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=openai_key)
 
     def format_docs(docs):
