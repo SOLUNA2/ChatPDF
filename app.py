@@ -11,6 +11,7 @@ from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain import hub
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+from langsmith import Client
 
 
 def build_db(pdf_path, openai_key):
@@ -46,7 +47,9 @@ def answer(question, openai_key, db):
     retriever_from_llm = MultiQueryRetriever.from_llm(
         retriever=db.as_retriever(), llm=llm
     )
-    prompt = hub.pull("rlm/rag-prompt")
+
+    client = Client()
+    prompt = client.pull_prompt("rlm/rag-prompt", dangerously_pull_public_prompt=True)
     generate_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=openai_key)
 
     def format_docs(docs):
