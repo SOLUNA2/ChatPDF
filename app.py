@@ -1,3 +1,18 @@
+import os
+import uuid
+import gradio as gr
+
+# LangChain 관련 모듈 Import
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain import hub
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+
 def build_db(pdf_path, openai_key):
     if not openai_key:
         return None, "⚠️ OpenAI API 키를 먼저 입력한 뒤 PDF를 다시 올려주세요."
